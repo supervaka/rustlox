@@ -1,7 +1,6 @@
-use crate::token::{Token, TokenValue};
-use crate::types::Number;
+use crate::ast::LitVal;
+use crate::token::{Token, TokenType};
 use crate::Lox;
-use std::io::{Result, Write};
 
 pub struct Scanner {
     source: String,
@@ -29,8 +28,9 @@ impl Scanner {
         }
 
         self.tokens.push(Token {
-            value: TokenValue::Eof,
+            value: TokenType::Eof,
             text: String::new(),
+            literal: LitVal::Nil,
             line: self.line,
         });
         &self.tokens
@@ -38,43 +38,43 @@ impl Scanner {
 
     fn scan_token(&mut self) {
         match self.advance() {
-            '(' => self.add_token(TokenValue::LeftParen),
-            ')' => self.add_token(TokenValue::RightParen),
-            '{' => self.add_token(TokenValue::LeftBrace),
-            '}' => self.add_token(TokenValue::RightBrace),
-            ',' => self.add_token(TokenValue::Comma),
-            '.' => self.add_token(TokenValue::Dot),
-            '-' => self.add_token(TokenValue::Minus),
-            '+' => self.add_token(TokenValue::Plus),
-            ';' => self.add_token(TokenValue::Semicolon),
-            '*' => self.add_token(TokenValue::Star),
+            '(' => self.add_token_default(TokenType::LeftParen),
+            ')' => self.add_token_default(TokenType::RightParen),
+            '{' => self.add_token_default(TokenType::LeftBrace),
+            '}' => self.add_token_default(TokenType::RightBrace),
+            ',' => self.add_token_default(TokenType::Comma),
+            '.' => self.add_token_default(TokenType::Dot),
+            '-' => self.add_token_default(TokenType::Minus),
+            '+' => self.add_token_default(TokenType::Plus),
+            ';' => self.add_token_default(TokenType::Semicolon),
+            '*' => self.add_token_default(TokenType::Star),
 
             '!' => {
                 if self.match_('=') {
-                    self.add_token(TokenValue::BangEqual);
+                    self.add_token_default(TokenType::BangEqual);
                 } else {
-                    self.add_token(TokenValue::Bang);
+                    self.add_token_default(TokenType::Bang);
                 }
             }
             '=' => {
                 if self.match_('=') {
-                    self.add_token(TokenValue::EqualEqual);
+                    self.add_token_default(TokenType::EqualEqual);
                 } else {
-                    self.add_token(TokenValue::Equal);
+                    self.add_token_default(TokenType::Equal);
                 }
             }
             '<' => {
                 if self.match_('=') {
-                    self.add_token(TokenValue::LessEqual);
+                    self.add_token_default(TokenType::LessEqual);
                 } else {
-                    self.add_token(TokenValue::Less);
+                    self.add_token_default(TokenType::Less);
                 }
             }
             '>' => {
                 if self.match_('=') {
-                    self.add_token(TokenValue::GreaterEqual);
+                    self.add_token_default(TokenType::GreaterEqual);
                 } else {
-                    self.add_token(TokenValue::Greater);
+                    self.add_token_default(TokenType::Greater);
                 }
             }
             '/' => {
@@ -83,7 +83,7 @@ impl Scanner {
                         self.advance();
                     }
                 } else {
-                    self.add_token(TokenValue::Slash);
+                    self.add_token_default(TokenType::Slash);
                 }
             }
             ' ' | '\r' | '\t' => (),
@@ -109,26 +109,26 @@ impl Scanner {
 
         let text = self.source[self.start..self.current].to_string();
         let token = match text.as_str() {
-            "and" => TokenValue::And,
-            "class" => TokenValue::Class,
-            "else" => TokenValue::Else,
-            "false" => TokenValue::False,
-            "fun" => TokenValue::Fun,
-            "for" => TokenValue::For,
-            "if" => TokenValue::If,
-            "nil" => TokenValue::Nil,
-            "or" => TokenValue::Or,
-            "print" => TokenValue::Print,
-            "return" => TokenValue::Return,
-            "super" => TokenValue::Super,
-            "this" => TokenValue::This,
-            "true" => TokenValue::True,
-            "var" => TokenValue::Var,
-            "while" => TokenValue::While,
-            _ => TokenValue::Identifier(text),
+            "and" => TokenType::And,
+            "class" => TokenType::Class,
+            "else" => TokenType::Else,
+            "false" => TokenType::False,
+            "fun" => TokenType::Fun,
+            "for" => TokenType::For,
+            "if" => TokenType::If,
+            "nil" => TokenType::Nil,
+            "or" => TokenType::Or,
+            "print" => TokenType::Print,
+            "return" => TokenType::Return,
+            "super" => TokenType::Super,
+            "this" => TokenType::This,
+            "true" => TokenType::True,
+            "var" => TokenType::Var,
+            "while" => TokenType::While,
+            _ => TokenType::Identifier,
         };
 
-        self.add_token(token);
+        self.add_token(token, LitVal::String(text));
     }
 
     fn string(&mut self) {
@@ -149,7 +149,7 @@ impl Scanner {
 
         // Trim the surrounding quotes.
         let value = self.source[(self.start + 1)..(self.current - 1)].to_string();
-        self.add_token(TokenValue::String(value));
+        self.add_token(TokenType::String, LitVal::String(value));
     }
 
     fn match_(&mut self, expected: char) -> bool {
@@ -180,11 +180,11 @@ impl Scanner {
     }
 
     fn is_alpha(&self, c: char) -> bool {
-        (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || c == '_'
+        c.is_ascii_lowercase() || c.is_ascii_uppercase() || c == '_'
     }
 
     fn is_alpha_numeric(&self, c: char) -> bool {
-        return self.is_alpha(c) || c.is_ascii_digit();
+        self.is_alpha(c) || c.is_ascii_digit()
     }
 
     fn number(&mut self) {
@@ -201,7 +201,7 @@ impl Scanner {
             }
         }
         let value = self.source[self.start..self.current].parse().unwrap();
-        self.add_token(TokenValue::Number(value));
+        self.add_token(TokenType::Number, LitVal::Number(value));
     }
 
     fn advance(&mut self) -> char {
@@ -210,13 +210,18 @@ impl Scanner {
         c
     }
 
-    fn add_token(&mut self, token: TokenValue) {
+    fn add_token(&mut self, token: TokenType, literal: LitVal) {
         let text = self.source[self.start..self.current].to_string();
         self.tokens.push(Token {
             value: token,
             text,
+            literal,
             line: self.line,
         });
+    }
+
+    fn add_token_default(&mut self, token: TokenType) {
+        self.add_token(token, LitVal::NotExist);
     }
 
     fn is_at_end(&self) -> bool {

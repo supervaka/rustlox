@@ -1,3 +1,4 @@
+mod ast;
 mod scanner;
 mod token;
 mod types;
