@@ -1,4 +1,4 @@
-use crate::{ast::LitVal, types::Number};
+use crate::parser::LitVal;
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum TokenType {
@@ -56,7 +56,7 @@ pub enum TokenType {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Token {
-    pub value: TokenType,
+    pub type_: TokenType,
     pub text: String,
     pub literal: LitVal,
     pub line: usize,
@@ -111,28 +111,28 @@ impl std::fmt::Display for TokenType {
     }
 }
 
-impl<'a> std::fmt::Display for Token {
+impl std::fmt::Display for Token {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self.value {
-            TokenType::LeftParen => write!(f, "LEFT_PAREN {} null", self.value),
-            TokenType::RightParen => write!(f, "RIGHT_PAREN {} null", self.value),
-            TokenType::LeftBrace => write!(f, "LEFT_BRACE {} null", self.value),
-            TokenType::RightBrace => write!(f, "RIGHT_BRACE {} null", self.value),
-            TokenType::Comma => write!(f, "COMMA {} null", self.value),
-            TokenType::Dot => write!(f, "DOT {} null", self.value),
-            TokenType::Minus => write!(f, "MINUS {} null", self.value),
-            TokenType::Plus => write!(f, "PLUS {} null", self.value),
-            TokenType::Semicolon => write!(f, "SEMICOLON {} null", self.value),
-            TokenType::Slash => write!(f, "SLASH {} null", self.value),
-            TokenType::Star => write!(f, "STAR {} null", self.value),
-            TokenType::Bang => write!(f, "BANG {} null", self.value),
-            TokenType::BangEqual => write!(f, "BANG_EQUAL {} null", self.value),
-            TokenType::Equal => write!(f, "EQUAL {} null", self.value),
-            TokenType::EqualEqual => write!(f, "EQUAL_EQUAL {} null", self.value),
-            TokenType::Greater => write!(f, "GREATER {} null", self.value),
-            TokenType::GreaterEqual => write!(f, "GREATER_EQUAL {} null", self.value),
-            TokenType::Less => write!(f, "LESS {} null", self.value),
-            TokenType::LessEqual => write!(f, "LESS_EQUAL {} null", self.value),
+        match self.type_ {
+            TokenType::LeftParen => write!(f, "LEFT_PAREN {} null", self.type_),
+            TokenType::RightParen => write!(f, "RIGHT_PAREN {} null", self.type_),
+            TokenType::LeftBrace => write!(f, "LEFT_BRACE {} null", self.type_),
+            TokenType::RightBrace => write!(f, "RIGHT_BRACE {} null", self.type_),
+            TokenType::Comma => write!(f, "COMMA {} null", self.type_),
+            TokenType::Dot => write!(f, "DOT {} null", self.type_),
+            TokenType::Minus => write!(f, "MINUS {} null", self.type_),
+            TokenType::Plus => write!(f, "PLUS {} null", self.type_),
+            TokenType::Semicolon => write!(f, "SEMICOLON {} null", self.type_),
+            TokenType::Slash => write!(f, "SLASH {} null", self.type_),
+            TokenType::Star => write!(f, "STAR {} null", self.type_),
+            TokenType::Bang => write!(f, "BANG {} null", self.type_),
+            TokenType::BangEqual => write!(f, "BANG_EQUAL {} null", self.type_),
+            TokenType::Equal => write!(f, "EQUAL {} null", self.type_),
+            TokenType::EqualEqual => write!(f, "EQUAL_EQUAL {} null", self.type_),
+            TokenType::Greater => write!(f, "GREATER {} null", self.type_),
+            TokenType::GreaterEqual => write!(f, "GREATER_EQUAL {} null", self.type_),
+            TokenType::Less => write!(f, "LESS {} null", self.type_),
+            TokenType::LessEqual => write!(f, "LESS_EQUAL {} null", self.type_),
             TokenType::Identifier => write!(
                 f,
                 "IDENTIFIER {} null",
@@ -160,25 +160,25 @@ impl<'a> std::fmt::Display for Token {
                     write!(f, "NUMBER {} {}", n, n)
                 }
             }
-            TokenType::And => write!(f, "AND {} null", self.value),
-            TokenType::Class => write!(f, "CLASS {} null", self.value),
-            TokenType::Else => write!(f, "ELSE {} null", self.value),
-            TokenType::False => write!(f, "FALSE {} null", self.value),
-            TokenType::Fun => write!(f, "FUN {} null", self.value),
-            TokenType::For => write!(f, "FOR {} null", self.value),
-            TokenType::If => write!(f, "IF {} null", self.value),
-            TokenType::Nil => write!(f, "NIL {} null", self.value),
-            TokenType::Or => write!(f, "OR {} null", self.value),
-            TokenType::Print => write!(f, "PRINT {} null", self.value),
-            TokenType::Return => write!(f, "RETURN {} null", self.value),
-            TokenType::Super => write!(f, "SUPER {} null", self.value),
-            TokenType::This => write!(f, "THIS {} null", self.value),
-            TokenType::True => write!(f, "TRUE {} null", self.value),
-            TokenType::Var => write!(f, "VAR {} null", self.value),
-            TokenType::While => write!(f, "WHILE {} null", self.value),
-            TokenType::Colon => write!(f, "COLON {} null", self.value),
-            TokenType::Question => write!(f, "QUESTION {} null", self.value),
-            TokenType::Break => write!(f, "BREAK {} null", self.value),
+            TokenType::And => write!(f, "AND {} null", self.type_),
+            TokenType::Class => write!(f, "CLASS {} null", self.type_),
+            TokenType::Else => write!(f, "ELSE {} null", self.type_),
+            TokenType::False => write!(f, "FALSE {} null", self.type_),
+            TokenType::Fun => write!(f, "FUN {} null", self.type_),
+            TokenType::For => write!(f, "FOR {} null", self.type_),
+            TokenType::If => write!(f, "IF {} null", self.type_),
+            TokenType::Nil => write!(f, "NIL {} null", self.type_),
+            TokenType::Or => write!(f, "OR {} null", self.type_),
+            TokenType::Print => write!(f, "PRINT {} null", self.type_),
+            TokenType::Return => write!(f, "RETURN {} null", self.type_),
+            TokenType::Super => write!(f, "SUPER {} null", self.type_),
+            TokenType::This => write!(f, "THIS {} null", self.type_),
+            TokenType::True => write!(f, "TRUE {} null", self.type_),
+            TokenType::Var => write!(f, "VAR {} null", self.type_),
+            TokenType::While => write!(f, "WHILE {} null", self.type_),
+            TokenType::Colon => write!(f, "COLON {} null", self.type_),
+            TokenType::Question => write!(f, "QUESTION {} null", self.type_),
+            TokenType::Break => write!(f, "BREAK {} null", self.type_),
             TokenType::Eof => write!(f, "EOF  null"),
         }
     }

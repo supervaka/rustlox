@@ -1,4 +1,4 @@
-use crate::ast::LitVal;
+use crate::parser::LitVal;
 use crate::token::{Token, TokenType};
 use crate::Lox;
 
@@ -28,7 +28,7 @@ impl Scanner {
         }
 
         self.tokens.push(Token {
-            value: TokenType::Eof,
+            type_: TokenType::Eof,
             text: String::new(),
             literal: LitVal::Nil,
             line: self.line,
@@ -213,7 +213,7 @@ impl Scanner {
     fn add_token(&mut self, token: TokenType, literal: LitVal) {
         let text = self.source[self.start..self.current].to_string();
         self.tokens.push(Token {
-            value: token,
+            type_: token,
             text,
             literal,
             line: self.line,
