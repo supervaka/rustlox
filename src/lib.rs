@@ -1,3 +1,4 @@
+mod interpreter;
 mod parser;
 mod scanner;
 mod token;
@@ -5,7 +6,7 @@ mod types;
 
 use std::io::Write;
 
-use anyhow::{bail, Result};
+use anyhow::Result;
 use parser::Parser;
 use scanner::Scanner;
 use token::{Token, TokenType};
