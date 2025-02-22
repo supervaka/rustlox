@@ -1,6 +1,7 @@
 use crate::token::{Token, TokenValue};
 use crate::types::Number;
 use crate::Lox;
+use std::io::{Result, Write};
 
 pub struct Scanner {
     source: String,
@@ -220,5 +221,40 @@ impl Scanner {
 
     fn is_at_end(&self) -> bool {
         self.current >= self.source.len()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::iter::zip;
+
+    use super::*;
+
+    #[test]
+    /// chap04_scanning tests
+    fn scanner() {
+        let mut scanner = Scanner::new(
+            "andy formless fo _ _123 _abc ab123
+abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890_"
+                .to_string(),
+        );
+        let tokens = scanner.scan_tokens();
+
+        // For now, just print the tokens.
+        let expected: Vec<_> = "IDENTIFIER andy null
+IDENTIFIER formless null
+IDENTIFIER fo null
+IDENTIFIER _ null
+IDENTIFIER _123 null
+IDENTIFIER _abc null
+IDENTIFIER ab123 null
+IDENTIFIER abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890_ null
+EOF  null"
+            .split('\n')
+            .collect();
+
+        for (token, e) in zip(tokens, expected) {
+            assert_eq!(&token.to_string(), e);
+        }
     }
 }
