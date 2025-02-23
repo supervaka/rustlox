@@ -1,4 +1,4 @@
-use crate::parser::LitVal;
+use crate::types::LitVal;
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum TokenType {
@@ -57,9 +57,20 @@ pub enum TokenType {
 #[derive(Debug, Clone, PartialEq)]
 pub struct Token {
     pub type_: TokenType,
-    pub text: String,
+    pub lexeme: String,
     pub literal: LitVal,
     pub line: usize,
+}
+
+impl Default for Token {
+    fn default() -> Self {
+        Token {
+            type_: TokenType::Eof,
+            lexeme: String::new(),
+            literal: LitVal::NotExist,
+            line: 0,
+        }
+    }
 }
 
 impl std::fmt::Display for TokenType {

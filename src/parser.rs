@@ -1,125 +1,13 @@
-use core::fmt;
-use std::{
-    cmp::Ordering,
-    ops::{Add, Div, Mul, Sub},
-};
-
 use crate::{
+    expr::Expr,
+    stmt::Stmt,
     token::{Token, TokenType},
-    types::Number,
+    types::LitVal,
     Lox,
 };
 
-pub enum Expr {
-    Binary {
-        left: Box<Expr>,
-        op: Token,
-        right: Box<Expr>,
-    },
-    Grouping {
-        expression: Box<Expr>,
-    },
-    Literal(LitVal),
-    Unary {
-        op: Token,
-        right: Box<Expr>,
-    },
-}
-
-impl Expr {
-    pub fn stringify(&self) -> String {
-        match self {
-            Expr::Binary { left, op, right } => {
-                format!("({} {} {})", op.type_, left.stringify(), right.stringify())
-            }
-            Expr::Grouping { expression } => format!("(group {})", expression.stringify()),
-            Expr::Literal(lit_val) => match lit_val {
-                LitVal::Number(n) => {
-                    if *n == n.floor() {
-                        format!("{}.0", n)
-                    } else {
-                        format!("{}", n)
-                    }
-                }
-                LitVal::String(s) => s.to_string(),
-                LitVal::Bool(b) => b.to_string(),
-                LitVal::Nil => "nil".to_string(),
-                LitVal::NotExist => todo!(),
-            },
-            Expr::Unary { op, right } => {
-                format!("({} {})", op.type_, right.stringify())
-            }
-        }
-    }
-}
-
-#[derive(Debug)]
-struct ParseError;
-
-#[derive(Debug, Clone, PartialEq, PartialOrd)]
-pub enum LitVal {
-    Number(Number),
-    String(String),
-    Bool(bool),
-    Nil,
-    NotExist,
-}
-
-impl fmt::Display for LitVal {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            LitVal::Number(n) => write!(f, "{}", n),
-            LitVal::String(s) => write!(f, "{}", s),
-            LitVal::Bool(b) => write!(f, "{}", b),
-            LitVal::Nil => write!(f, "nil"),
-            LitVal::NotExist => write!(f, "not exist"),
-        }
-    }
-}
-
-impl Sub for LitVal {
-    type Output = Self;
-
-    fn sub(self, other: Self) -> Self {
-        match (self, other) {
-            (LitVal::Number(a), LitVal::Number(b)) => LitVal::Number(a - b),
-            _ => panic!("Subtraction is only supported for numbers"),
-        }
-    }
-}
-impl Div for LitVal {
-    type Output = Self;
-
-    fn div(self, other: Self) -> Self {
-        match (self, other) {
-            (LitVal::Number(a), LitVal::Number(b)) => LitVal::Number(a / b),
-            _ => panic!("Division is only supported for numbers"),
-        }
-    }
-}
-
-impl Mul for LitVal {
-    type Output = Self;
-
-    fn mul(self, other: Self) -> Self {
-        match (self, other) {
-            (LitVal::Number(a), LitVal::Number(b)) => LitVal::Number(a * b),
-            _ => panic!("Multiplication is only supported for numbers"),
-        }
-    }
-}
-
-impl Add for LitVal {
-    type Output = Self;
-
-    fn add(self, other: Self) -> Self {
-        match (self, other) {
-            (LitVal::Number(a), LitVal::Number(b)) => LitVal::Number(a + b),
-            (LitVal::String(a), LitVal::String(b)) => LitVal::String(a + &b),
-            _ => panic!("Addition is only supported for numbers and strings"),
-        }
-    }
-}
+#[derive(Debug, Clone)]
+pub struct ParseError;
 
 pub struct Parser {
     tokens: Vec<Token>,
@@ -131,31 +19,121 @@ impl Parser {
         Parser { tokens, current: 0 }
     }
 
-    pub fn parse(&mut self) -> Expr {
-        self.expression()
+    pub fn parse(&mut self) -> Result<Vec<Stmt>, ParseError> {
+        let mut statements = Vec::new();
+        while !self.is_at_end() {
+            statements.push(self.declaration()?);
+        }
+        Ok(statements)
     }
 
-    fn expression(&mut self) -> Expr {
-        self.equality()
+    fn statement(&mut self) -> Result<Stmt, ParseError> {
+        if self.match_(&[TokenType::Print]) {
+            self.print_stmt()
+        } else if self.match_(&[TokenType::LeftBrace]) {
+            Ok(Stmt::Block(self.block()?))
+        } else {
+            self.expr_stmt()
+        }
     }
 
-    fn equality(&mut self) -> Expr {
-        let mut expr = self.comparison();
+    fn print_stmt(&mut self) -> Result<Stmt, ParseError> {
+        let val = match self.expression() {
+            Ok(v) => Ok(Stmt::Print(v)),
+            Err(e) => return Err(e),
+        };
+        self.consume(&TokenType::Semicolon, "Expect ';' after value.")?;
+        val
+    }
+
+    fn expr_stmt(&mut self) -> Result<Stmt, ParseError> {
+        let expr = match self.expression() {
+            Ok(expr) => Ok(Stmt::Expr(expr)),
+            Err(e) => return Err(e),
+        };
+        self.consume(&TokenType::Semicolon, "Expect ';' after expression.")?;
+        expr
+    }
+
+    fn block(&mut self) -> Result<Vec<Stmt>, ParseError> {
+        let mut stmts = Vec::new();
+
+        while !self.check(&TokenType::RightBrace) && !self.is_at_end() {
+            stmts.push(self.declaration()?);
+        }
+
+        let _ = self.consume(&TokenType::RightBrace, "Expect '}' after block.");
+        Ok(stmts)
+    }
+
+    fn declaration(&mut self) -> Result<Stmt, ParseError> {
+        if self.match_(&[TokenType::Var]) {
+            return Ok(self.var_decl()?);
+        }
+        self.statement()
+    }
+
+    fn var_decl(&mut self) -> Result<Stmt, ParseError> {
+        let name = self.consume(&TokenType::Identifier, "Expect variable name.")?;
+
+        let initializer = if self.match_(&[TokenType::Equal]) {
+            self.expression()?
+        } else {
+            Expr::Literal(LitVal::Nil)
+        };
+
+        let _ = self.consume(
+            &TokenType::Semicolon,
+            "Expect ';' after variable declaration.",
+        );
+        Ok(Stmt::Var { name, initializer })
+    }
+
+    pub fn expression(&mut self) -> Result<Expr, ParseError> {
+        self.assignment()
+    }
+
+    fn assignment(&mut self) -> Result<Expr, ParseError> {
+        let expr = self.equality()?;
+
+        if self.match_(&[TokenType::Equal]) {
+            let equals = self.previous();
+            let value = self.assignment()?;
+
+            match expr {
+                Expr::Variable(token) => {
+                    let name = token;
+                    return Ok(Expr::Assign {
+                        name,
+                        value: Box::new(value),
+                    });
+                }
+                _ => {
+                    return Err(self.error(equals, "Invalid assignment target."));
+                }
+            }
+        }
+
+        Ok(expr)
+    }
+
+    fn equality(&mut self) -> Result<Expr, ParseError> {
+        let mut expr = self.comparison()?;
 
         while self.match_(&[TokenType::BangEqual, TokenType::EqualEqual]) {
             let operator = self.previous();
-            let right = self.comparison();
+            let right = self.comparison()?;
             expr = Expr::Binary {
                 left: Box::new(expr),
                 op: operator,
                 right: Box::new(right),
-            }
+            };
         }
 
-        expr
+        Ok(expr)
     }
 
-    fn comparison(&mut self) -> Expr {
+    fn comparison(&mut self) -> Result<Expr, ParseError> {
         let mut expr = self.term();
 
         while self.match_(&[
@@ -166,59 +144,59 @@ impl Parser {
         ]) {
             let operator = self.previous();
             let right = self.term();
-            expr = Expr::Binary {
-                left: Box::new(expr),
+            expr = Ok(Expr::Binary {
+                left: Box::new(expr?),
                 op: operator,
-                right: Box::new(right),
-            }
+                right: Box::new(right?),
+            })
         }
 
         expr
     }
 
-    fn term(&mut self) -> Expr {
+    fn term(&mut self) -> Result<Expr, ParseError> {
         let mut expr = self.factor();
 
         while self.match_(&[TokenType::Minus, TokenType::Plus]) {
             let operator = self.previous();
             let right = self.factor();
-            expr = Expr::Binary {
-                left: Box::new(expr),
+            expr = Ok(Expr::Binary {
+                left: Box::new(expr?),
                 op: operator,
-                right: Box::new(right),
-            }
+                right: Box::new(right?),
+            })
         }
 
         expr
     }
 
-    fn factor(&mut self) -> Expr {
+    fn factor(&mut self) -> Result<Expr, ParseError> {
         let mut expr = self.unary();
 
-        while self.match_(&[TokenType::Minus, TokenType::Plus]) {
+        while self.match_(&[TokenType::Slash, TokenType::Star]) {
             let operator = self.previous();
             let right = self.unary();
-            expr = Expr::Binary {
-                left: Box::new(expr),
+            expr = Ok(Expr::Binary {
+                left: Box::new(expr?),
                 op: operator,
-                right: Box::new(right),
-            }
+                right: Box::new(right?),
+            })
         }
 
         expr
     }
 
-    fn unary(&mut self) -> Expr {
+    fn unary(&mut self) -> Result<Expr, ParseError> {
         if self.match_(&[TokenType::Bang, TokenType::Minus]) {
             let operator = self.previous();
             let right = self.unary();
-            return Expr::Unary {
+            return Ok(Expr::Unary {
                 op: operator,
-                right: Box::new(right),
-            };
+                right: Box::new(right?),
+            });
         }
 
-        self.primary().unwrap()
+        self.primary()
     }
 
     fn primary(&mut self) -> Result<Expr, ParseError> {
@@ -236,12 +214,16 @@ impl Parser {
             return Ok(Expr::Literal(self.previous().literal));
         }
 
+        if self.match_(&[TokenType::Identifier]) {
+            return Ok(Expr::Variable(self.previous()));
+        }
+
         if self.match_(&[TokenType::LeftParen]) {
             let expr = self.expression();
             let _ = self.consume(&TokenType::RightParen, "Expect ')' after expression.");
 
             return Ok(Expr::Grouping {
-                expression: Box::new(expr),
+                expression: Box::new(expr?),
             });
         }
 
@@ -257,7 +239,7 @@ impl Parser {
     }
 
     fn error(&self, token: Token, message: &str) -> ParseError {
-        Lox::parse_error(token, message);
+        Lox::token_error(&token, message);
         ParseError
     }
 
@@ -329,7 +311,7 @@ mod tests {
             left: Box::new(Expr::Unary {
                 op: Token {
                     type_: TokenType::Minus,
-                    text: "-".to_string(),
+                    lexeme: "-".to_string(),
                     line: 1,
                     literal: LitVal::NotExist,
                 },
@@ -337,7 +319,7 @@ mod tests {
             }),
             op: Token {
                 type_: TokenType::Star,
-                text: "*".to_string(),
+                lexeme: "*".to_string(),
                 line: 1,
                 literal: LitVal::NotExist,
             },
@@ -354,10 +336,10 @@ mod tests {
         let tokens = scanner.scan_tokens().clone();
 
         let mut parser = Parser::new(tokens);
-        let expr = parser.parse();
+        let expr = parser.expression();
 
         assert_eq!(
-            expr.stringify(),
+            expr.unwrap().stringify(),
             "(+ (group (- 5.0 (group (- 3.0 1.0)))) (- 1.0))"
         );
     }

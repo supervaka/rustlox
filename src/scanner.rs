@@ -1,6 +1,6 @@
-use crate::parser::LitVal;
 use crate::token::{Token, TokenType};
-use crate::Lox;
+use crate::{types, Lox};
+use types::LitVal;
 
 pub struct Scanner {
     source: String,
@@ -29,7 +29,7 @@ impl Scanner {
 
         self.tokens.push(Token {
             type_: TokenType::Eof,
-            text: String::new(),
+            lexeme: String::new(),
             literal: LitVal::Nil,
             line: self.line,
         });
@@ -214,7 +214,7 @@ impl Scanner {
         let text = self.source[self.start..self.current].to_string();
         self.tokens.push(Token {
             type_: token,
-            text,
+            lexeme: text,
             literal,
             line: self.line,
         });

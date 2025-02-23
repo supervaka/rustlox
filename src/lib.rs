@@ -1,34 +1,40 @@
+mod environment;
+mod expr;
 mod interpreter;
 mod parser;
 mod scanner;
+mod stmt;
 mod token;
 mod types;
 
+use core::fmt;
 use std::io::Write;
 
-use anyhow::Result;
+use anyhow::{anyhow, Error, Result};
+use interpreter::{Interpreter, RuntimeError};
 use parser::Parser;
 use scanner::Scanner;
 use token::{Token, TokenType};
 
+static mut HAD_ERROR: bool = false;
 static mut HAD_RUNTIME_ERROR: bool = false;
 
-pub struct Lox {
-    had_error: bool,
-}
+pub struct Lox {}
 
 impl Lox {
     pub fn new() -> Self {
-        Self { had_error: false }
+        Lox {}
     }
 
     pub fn run_file(&mut self, path: &str) -> Result<()> {
         let contents = std::fs::read_to_string(path).expect("file to be readable");
+        self.run(contents);
 
-        self.run(contents)?;
-
-        if self.had_error {
+        if unsafe { HAD_ERROR } {
             std::process::exit(65);
+        }
+        if unsafe { HAD_RUNTIME_ERROR } {
+            std::process::exit(70);
         }
 
         Ok(())
@@ -43,7 +49,9 @@ impl Lox {
             if std::io::stdin().read_line(&mut line)? > 0 {
                 if let Err(e) = self.run(line) {
                     eprintln!("{}", e);
-                    self.had_error = false;
+                    unsafe {
+                        HAD_ERROR = true;
+                    }
                 }
             } else {
                 break;
@@ -57,14 +65,13 @@ impl Lox {
         let mut scanner = Scanner::new(source);
         let tokens = scanner.scan_tokens().clone();
 
-        // For ch4 tests just print the tokens.
-        // for token in tokens {
-        //     println!("{}", token);
-        // }
-
         let mut parser = Parser::new(tokens);
-        let expr = parser.parse();
-        println!("{}", expr.stringify());
+        let stmts = match parser.parse() {
+            Ok(it) => it,
+            Err(err) => return Err(anyhow!("parser.parse() error in lib.rs")),
+        };
+        let mut interpreter = Interpreter::new();
+        interpreter.interpret(stmts);
 
         Ok(())
     }
@@ -73,18 +80,25 @@ impl Lox {
         Self::report(line, "", message);
     }
 
-    pub fn parse_error(token: Token, message: &str) {
+    pub fn runtime_error(error: RuntimeError) {
+        eprintln!("{}\n[line {}]", error.message, error.token.line);
+        unsafe {
+            HAD_RUNTIME_ERROR = true;
+        };
+    }
+
+    pub fn token_error(token: &Token, message: &str) {
         if token.type_ == TokenType::Eof {
             Self::report(token.line, " at end", message)
         } else {
-            let s = format!(" at '{}'", token.text);
+            let s = format!(" at '{}'", token.lexeme);
             Self::report(token.line, &s, message)
         }
     }
 
     fn report(line: usize, location: &str, message: &str) {
-        eprintln!("[line {line}] Error {location}: {message}");
-        unsafe { HAD_RUNTIME_ERROR = true }
+        eprintln!("[line {line}] Error{location}: {message}");
+        unsafe { HAD_ERROR = true }
     }
 }
 
