@@ -72,7 +72,15 @@ impl Parser {
     }
 
     fn while_stmt(&mut self) -> Result<Stmt, ParseError> {
-        !todo!()
+        self.consume(&TokenType::LeftParen, "Expect '(' after 'while'.")?;
+        let condition = self.expression()?;
+        self.consume(&TokenType::RightParen, "Expect ')' after after condition.")?;
+        let body = self.statement()?;
+
+        Ok(Stmt::While {
+            condition,
+            body: Box::new(body),
+        })
     }
 
     fn expr_stmt(&mut self) -> Result<Stmt, ParseError> {
