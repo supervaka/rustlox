@@ -84,6 +84,7 @@ impl Interpreter {
                     Ok(LitVal::Nil)
                 }
             }
+            Stmt::While { condition, body } => todo!(),
         }
     }
 

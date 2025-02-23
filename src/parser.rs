@@ -34,6 +34,9 @@ impl Parser {
         if self.match_(&[TokenType::Print]) {
             return self.print_stmt();
         }
+        if self.match_(&[TokenType::While]) {
+            return self.while_stmt();
+        }
         if self.match_(&[TokenType::LeftBrace]) {
             return Ok(Stmt::Block(self.block()?));
         }
@@ -68,6 +71,10 @@ impl Parser {
         val
     }
 
+    fn while_stmt(&mut self) -> Result<Stmt, ParseError> {
+        !todo!()
+    }
+
     fn expr_stmt(&mut self) -> Result<Stmt, ParseError> {
         let expr = match self.expression() {
             Ok(expr) => Ok(Stmt::Expr(expr)),
@@ -84,13 +91,23 @@ impl Parser {
             stmts.push(self.declaration()?);
         }
 
-        let _ = self.consume(&TokenType::RightBrace, "Expect '}' after block.");
+        self.consume(&TokenType::RightBrace, "Expect '}' after block.")?;
         Ok(stmts)
     }
 
     fn declaration(&mut self) -> Result<Stmt, ParseError> {
+        match self.declaration_helper() {
+            Ok(n) => Ok(n),
+            Err(_) => {
+                self.synchronize();
+                Ok(Stmt::Expr(Expr::Literal(LitVal::Nil)))
+            }
+        }
+    }
+
+    fn declaration_helper(&mut self) -> Result<Stmt, ParseError> {
         if self.match_(&[TokenType::Var]) {
-            return Ok(self.var_decl()?);
+            return self.var_decl();
         }
         self.statement()
     }

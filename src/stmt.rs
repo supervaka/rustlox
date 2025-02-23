@@ -15,4 +15,8 @@ pub enum Stmt {
         name: Token,
         initializer: Expr,
     },
+    While {
+        condition: Expr,
+        body: Box<Stmt>,
+    },
 }
