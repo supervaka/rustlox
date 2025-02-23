@@ -28,13 +28,35 @@ impl Parser {
     }
 
     fn statement(&mut self) -> Result<Stmt, ParseError> {
-        if self.match_(&[TokenType::Print]) {
-            self.print_stmt()
-        } else if self.match_(&[TokenType::LeftBrace]) {
-            Ok(Stmt::Block(self.block()?))
-        } else {
-            self.expr_stmt()
+        if self.match_(&[TokenType::If]) {
+            return self.if_stmt();
         }
+        if self.match_(&[TokenType::Print]) {
+            return self.print_stmt();
+        }
+        if self.match_(&[TokenType::LeftBrace]) {
+            return Ok(Stmt::Block(self.block()?));
+        }
+        self.expr_stmt()
+    }
+
+    fn if_stmt(&mut self) -> Result<Stmt, ParseError> {
+        self.consume(&TokenType::LeftParen, "Expect '(' after 'if'.")?;
+        let condition = self.expression()?;
+        self.consume(&TokenType::RightParen, "Expect ')' after if condition.")?;
+
+        let then_branch = Box::new(self.statement()?);
+        let else_branch = if self.match_(&[TokenType::Else]) {
+            Some(Box::new(self.statement()?))
+        } else {
+            None
+        };
+
+        Ok(Stmt::If {
+            condition,
+            then_branch,
+            else_branch,
+        })
     }
 
     fn print_stmt(&mut self) -> Result<Stmt, ParseError> {
@@ -94,7 +116,7 @@ impl Parser {
     }
 
     fn assignment(&mut self) -> Result<Expr, ParseError> {
-        let expr = self.equality()?;
+        let expr = self.or()?;
 
         if self.match_(&[TokenType::Equal]) {
             let equals = self.previous();
@@ -111,6 +133,38 @@ impl Parser {
                 _ => {
                     return Err(self.error(equals, "Invalid assignment target."));
                 }
+            }
+        }
+
+        Ok(expr)
+    }
+
+    fn or(&mut self) -> Result<Expr, ParseError> {
+        let mut expr = self.and()?;
+
+        while self.match_(&[TokenType::Or]) {
+            let op = self.previous();
+            let right = self.and()?;
+            expr = Expr::Logical {
+                left: Box::new(expr),
+                op,
+                right: Box::new(right),
+            }
+        }
+
+        Ok(expr)
+    }
+
+    fn and(&mut self) -> Result<Expr, ParseError> {
+        let mut expr = self.equality()?;
+
+        while self.match_(&[TokenType::And]) {
+            let op = self.previous();
+            let right = self.equality()?;
+            expr = Expr::Logical {
+                left: Box::new(expr),
+                op,
+                right: Box::new(right),
             }
         }
 

@@ -15,6 +15,11 @@ pub enum Expr {
         expression: Box<Expr>,
     },
     Literal(LitVal),
+    Logical {
+        left: Box<Expr>,
+        op: Token,
+        right: Box<Expr>,
+    },
     Unary {
         op: Token,
         right: Box<Expr>,
@@ -47,6 +52,7 @@ impl Expr {
             }
             Expr::Variable(token) => todo!(),
             Expr::Assign { name, value } => todo!(),
+            Expr::Logical { left, op, right } => todo!(),
         }
     }
 }

@@ -71,6 +71,19 @@ impl Interpreter {
                     &self.env,
                 )))),
             ),
+            Stmt::If {
+                condition,
+                then_branch,
+                else_branch,
+            } => {
+                if is_truthy(&self.evaluate(condition)?) {
+                    self.execute(*then_branch)
+                } else if let Some(else_) = else_branch {
+                    self.execute(*else_)
+                } else {
+                    Ok(LitVal::Nil)
+                }
+            }
         }
     }
 
@@ -96,7 +109,7 @@ impl Interpreter {
             Expr::Unary { op, right } => {
                 let right = self.evaluate(*right)?;
                 match op.type_ {
-                    TokenType::Bang => Ok(LitVal::Bool(!is_truthy(right))),
+                    TokenType::Bang => Ok(LitVal::Bool(!is_truthy(&right))),
                     TokenType::Minus => match right {
                         LitVal::Number(x) => Ok(LitVal::Number(-x)),
                         _ => Err(RuntimeError::new(op, "Operand must be a number.")),
@@ -109,6 +122,17 @@ impl Interpreter {
                 let value = self.evaluate(*value)?;
                 self.env.borrow_mut().assign(&name, &value)?;
                 Ok(value)
+            }
+            Expr::Logical { left, op, right } => {
+                let left = self.evaluate(*left)?;
+                if op.type_ == TokenType::Or {
+                    if is_truthy(&left) {
+                        return Ok(left);
+                    }
+                } else if !is_truthy(&left) {
+                    return Ok(left);
+                }
+                self.evaluate(*right)
             }
         }
     }
@@ -166,9 +190,9 @@ impl Interpreter {
 }
 
 /// `false` and `nil` are falsey, and everything else is truthy
-fn is_truthy(val: LitVal) -> bool {
+fn is_truthy(val: &LitVal) -> bool {
     match val {
-        LitVal::Bool(b) => b,
+        LitVal::Bool(b) => *b,
         LitVal::Nil => false,
         _ => true,
     }
