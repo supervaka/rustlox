@@ -28,6 +28,9 @@ impl Parser {
     }
 
     fn statement(&mut self) -> Result<Stmt, ParseError> {
+        if self.match_(&[TokenType::For]) {
+            return self.for_stmt();
+        }
         if self.match_(&[TokenType::If]) {
             return self.if_stmt();
         }
@@ -41,6 +44,50 @@ impl Parser {
             return Ok(Stmt::Block(self.block()?));
         }
         self.expr_stmt()
+    }
+
+    fn for_stmt(&mut self) -> Result<Stmt, ParseError> {
+        self.consume(&TokenType::LeftParen, "Expect '(' after 'for'.")?;
+
+        let initializer = if self.match_(&[TokenType::Semicolon]) {
+            None
+        } else if self.match_(&[TokenType::Var]) {
+            Some(self.var_decl()?)
+        } else {
+            Some(self.expr_stmt()?)
+        };
+
+        let mut condition = if !self.check(&TokenType::Semicolon) {
+            self.expression()?
+        } else {
+            Expr::Literal(LitVal::Nil)
+        };
+        self.consume(&TokenType::Semicolon, "Expect ';' after loop condition.")?;
+
+        let increment = if !self.check(&TokenType::RightParen) {
+            self.expression()?
+        } else {
+            Expr::Literal(LitVal::Nil)
+        };
+        self.consume(&TokenType::RightParen, "Expect ')' after for clauses.")?;
+
+        let mut body = self.statement()?;
+        if increment != Expr::Literal(LitVal::Nil) {
+            body = Stmt::Block(vec![body, Stmt::Expr(increment)]);
+        }
+
+        if condition == Expr::Literal(LitVal::Nil) {
+            condition = Expr::Literal(LitVal::Bool(true));
+        }
+        body = Stmt::While {
+            condition,
+            body: Box::new(body),
+        };
+        if let Some(initlzlr) = initializer {
+            body = Stmt::Block(vec![initlzlr, body]);
+        };
+
+        Ok(body)
     }
 
     fn if_stmt(&mut self) -> Result<Stmt, ParseError> {
