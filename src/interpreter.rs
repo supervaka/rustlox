@@ -101,16 +101,39 @@ impl Interpreter {
                 Ok(LitVal::Nil)
             }
             Stmt::Function { name, params, body } => {
-                let function = LoxFunction::new(Rc::new(Stmt::Function {
-                    name: name.clone(),
-                    params: params.clone(),
-                    body: body.clone(),
-                }));
+                let function = LoxFunction::new(
+                    Rc::new(Stmt::Function {
+                        name: name.clone(),
+                        params: params.clone(),
+                        body: body.clone(),
+                    }),
+                    Rc::clone(&self.env),
+                );
                 self.env
                     .borrow_mut()
                     .define(name.lexeme.clone(), LitVal::Function(function));
 
                 Ok(LitVal::Nil)
+            }
+            Stmt::Return {
+                keyword,
+                value: stmt_value,
+            } => {
+                let value = if *stmt_value == Expr::Literal(LitVal::Nil) {
+                    LitVal::Nil
+                } else {
+                    match self.evaluate(stmt_value) {
+                        Ok(n) => n,
+                        Err(e) => return Err(e), // todo
+                    }
+                };
+                let temp = Token {
+                    type_: TokenType::Return,
+                    lexeme: "".to_string(),
+                    literal: value,
+                    line: 0,
+                };
+                Err(RuntimeError::new(temp, "return"))
             }
         }
     }

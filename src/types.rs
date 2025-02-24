@@ -40,7 +40,16 @@ impl fmt::Display for LitVal {
             LitVal::Nil => write!(f, "nil"),
             LitVal::NotExist => write!(f, "not exist"),
             LitVal::Clock(_) => write!(f, "<native fn>"),
-            LitVal::Function(lox_function) => write!(f, "<fn>"),
+            LitVal::Function(lox_function) => write!(f, "<fn {}>", {
+                match *lox_function.decl {
+                    Stmt::Function {
+                        ref name,
+                        params: _,
+                        body: _,
+                    } => name.lexeme.clone(),
+                    _ => unreachable!(),
+                }
+            }),
         }
     }
 }
@@ -69,11 +78,12 @@ impl LoxCallable for Clock {
 #[derive(Debug, Clone, PartialEq, PartialOrd)]
 pub struct LoxFunction {
     decl: Rc<Stmt>,
+    closure: Rc<RefCell<Environment>>,
 }
 
 impl LoxFunction {
-    pub fn new(decl: Rc<Stmt>) -> Self {
-        LoxFunction { decl }
+    pub fn new(decl: Rc<Stmt>, closure: Rc<RefCell<Environment>>) -> Self {
+        LoxFunction { decl, closure }
     }
 }
 
@@ -106,12 +116,24 @@ impl LoxCallable for LoxFunction {
             ref body,
         } = *self.decl
         {
+            let environment = Rc::new(RefCell::new(Environment::new_with_enclosing(Rc::clone(
+                &self.closure,
+            ))));
             for i in 0..params.len() {
                 environment
                     .borrow_mut()
                     .define(params[i].lexeme.clone(), arguments[i].clone());
             }
-            interpreter.exec_block(body, environment)?;
+            let _ = match interpreter.exec_block(body, environment) {
+                Ok(n) => Ok::<LitVal, RuntimeError>(n),
+                Err(RuntimeError { message, token }) => {
+                    if message == "return" {
+                        return Ok(token.literal);
+                    } else {
+                        return Err(RuntimeError::new(token, "cringe"));
+                    }
+                }
+            };
         } else {
             unreachable!("self.decl should always be a function");
         }

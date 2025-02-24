@@ -1,9 +1,9 @@
-use anyhow::{anyhow, Error, Result};
-use std::{cell::RefCell, collections::HashMap, rc::Rc};
+use anyhow::Result;
+use std::{cell::RefCell, cmp::Ordering, collections::HashMap, rc::Rc};
 
 use crate::{interpreter::RuntimeError, token::Token, types::LitVal};
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct Environment {
     values: HashMap<String, LitVal>,
     pub enclosing: Option<Rc<RefCell<Environment>>>,
@@ -53,5 +53,17 @@ impl Environment {
 
     pub fn define(&mut self, name: String, value: LitVal) {
         self.values.insert(name, value);
+    }
+}
+
+impl PartialEq for Environment {
+    fn eq(&self, other: &Self) -> bool {
+        self.values == other.values && self.enclosing == other.enclosing
+    }
+}
+
+impl PartialOrd for Environment {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.values.len().cmp(&other.values.len()))
     }
 }
