@@ -2,9 +2,15 @@ use expr::Expr;
 
 use crate::{expr, token::Token};
 
+#[derive(Debug, Clone, PartialEq, PartialOrd)]
 pub enum Stmt {
     Block(Vec<Stmt>),
     Expr(Expr),
+    Function {
+        name: Token,
+        params: Vec<Token>,
+        body: Vec<Stmt>,
+    },
     If {
         condition: Expr,
         then_branch: Box<Stmt>,

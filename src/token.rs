@@ -1,6 +1,6 @@
 use crate::types::LitVal;
 
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, Clone, PartialEq, PartialOrd)]
 pub enum TokenType {
     // Single-character tokens.
     LeftParen,
@@ -54,7 +54,7 @@ pub enum TokenType {
     Break,
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, PartialOrd)]
 pub struct Token {
     pub type_: TokenType,
     pub lexeme: String,

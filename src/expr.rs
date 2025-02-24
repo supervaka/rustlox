@@ -1,6 +1,6 @@
 use crate::{token::Token, types::LitVal};
 
-#[derive(PartialEq)]
+#[derive(Debug, Clone, PartialEq, PartialOrd)]
 pub enum Expr {
     Binary {
         left: Box<Expr>,
@@ -10,6 +10,11 @@ pub enum Expr {
     Assign {
         name: Token,
         value: Box<Expr>,
+    },
+    Call {
+        callee: Box<Expr>,
+        paren: Token,
+        arguments: Vec<Expr>,
     },
     Grouping {
         expression: Box<Expr>,
@@ -46,6 +51,8 @@ impl Expr {
                 LitVal::Bool(b) => b.to_string(),
                 LitVal::Nil => "nil".to_string(),
                 LitVal::NotExist => todo!(),
+                LitVal::Function(lox_function) => todo!(),
+                LitVal::Clock(clock) => todo!(),
             },
             Expr::Unary { op, right } => {
                 format!("({} {})", op.type_, right.stringify())
@@ -53,6 +60,11 @@ impl Expr {
             Expr::Variable(token) => todo!(),
             Expr::Assign { name, value } => todo!(),
             Expr::Logical { left, op, right } => todo!(),
+            Expr::Call {
+                callee,
+                paren,
+                arguments,
+            } => todo!(),
         }
     }
 }

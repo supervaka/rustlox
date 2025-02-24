@@ -1,10 +1,12 @@
 use crate::token::Token;
+use crate::types::{Clock, LoxCallable, LoxFunction};
 use crate::Lox;
 use crate::{environment::Environment, expr::Expr, stmt::Stmt, token::TokenType, types::LitVal};
 use std::cell::RefCell;
 use std::rc::Rc;
 
 pub struct Interpreter {
+    pub globals: Rc<RefCell<Environment>>,
     env: Rc<RefCell<Environment>>,
 }
 
@@ -34,8 +36,14 @@ impl From<anyhow::Error> for RuntimeError {
 
 impl Interpreter {
     pub fn new() -> Self {
+        let globals = Rc::new(RefCell::new(Environment::new()));
+        globals
+            .borrow_mut()
+            .define("clock".to_string(), LitVal::Clock(Clock));
+
         Interpreter {
-            env: Rc::new(RefCell::new(Environment::new())),
+            globals: Rc::clone(&globals),
+            env: Rc::clone(&globals),
         }
     }
 
@@ -92,10 +100,22 @@ impl Interpreter {
                 }
                 Ok(LitVal::Nil)
             }
+            Stmt::Function { name, params, body } => {
+                let function = LoxFunction::new(Rc::new(Stmt::Function {
+                    name: name.clone(),
+                    params: params.clone(),
+                    body: body.clone(),
+                }));
+                self.env
+                    .borrow_mut()
+                    .define(name.lexeme.clone(), LitVal::Function(function));
+
+                Ok(LitVal::Nil)
+            }
         }
     }
 
-    fn exec_block(
+    pub fn exec_block(
         &mut self,
         stmts: &[Stmt],
         env: Rc<RefCell<Environment>>,
@@ -141,6 +161,36 @@ impl Interpreter {
                     return Ok(left);
                 }
                 self.evaluate(right)
+            }
+            Expr::Call {
+                callee,
+                paren,
+                arguments,
+            } => {
+                let callee = self.evaluate(callee)?;
+                let arguments = arguments
+                    .iter()
+                    .map(|arg| self.evaluate(arg))
+                    .collect::<Result<Vec<_>, _>>()?;
+
+                if let LitVal::Function(function) = callee {
+                    if arguments.len() != function.arity() {
+                        return Err(RuntimeError::new(
+                            paren.clone(),
+                            &format!(
+                                "Expected {} arguments but got {}.",
+                                function.arity(),
+                                arguments.len()
+                            ),
+                        ));
+                    }
+                    function.call(self, arguments)
+                } else {
+                    Err(RuntimeError::new(
+                        paren.clone(),
+                        "Can only call functions and classes.",
+                    ))
+                }
             }
         }
     }
