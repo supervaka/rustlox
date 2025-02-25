@@ -124,7 +124,7 @@ impl Interpreter {
                 } else {
                     match self.evaluate(stmt_value) {
                         Ok(n) => n,
-                        Err(e) => return Err(e), // todo
+                        Err(e) => todo!(), // todo
                     }
                 };
                 let temp = Token {
@@ -145,11 +145,17 @@ impl Interpreter {
     ) -> Result<LitVal, RuntimeError> {
         let prev = Rc::clone(&self.env);
         self.env = env;
+        let mut result = Ok(LitVal::NotExist);
         for st in stmts {
-            self.execute(st)?;
+            result = self.execute(st);
+            if let Err(RuntimeError { message, .. }) = &result {
+                if message == "return" {
+                    break;
+                }
+            }
         }
         self.env = prev;
-        Ok(LitVal::Nil)
+        result
     }
 
     fn evaluate(&mut self, expr: &Expr) -> Result<LitVal, RuntimeError> {

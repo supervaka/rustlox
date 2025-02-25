@@ -106,9 +106,9 @@ impl LoxCallable for LoxFunction {
         interpreter: &mut Interpreter,
         arguments: Vec<LitVal>,
     ) -> Result<LitVal, RuntimeError> {
-        let environment = Rc::new(RefCell::new(Environment::new_with_enclosing(
-            interpreter.globals.clone(),
-        )));
+        let environment = Rc::new(RefCell::new(Environment::new_with_enclosing(Rc::clone(
+            &interpreter.globals,
+        ))));
 
         if let Stmt::Function {
             name: _,
@@ -130,7 +130,8 @@ impl LoxCallable for LoxFunction {
                     if message == "return" {
                         return Ok(token.literal);
                     } else {
-                        return Err(RuntimeError::new(token, "cringe"));
+                        dbg!(token.clone());
+                        return Err(RuntimeError::new(token, &message));
                     }
                 }
             };
